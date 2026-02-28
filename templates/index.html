@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fishermen Safety Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <style>
+        body { font-family: Arial; margin:0; padding:0; }
+        #map { height: 500px; width: 100%; }
+        #networkStatus {
+            padding:10px; font-weight:bold; color:white;
+            border-radius:5px; margin-bottom:10px; text-align:center;
+            background:#555;
+        }
+        #safetyStatus { 
+            padding:20px; font-weight:bold; color:white; 
+            font-size:18px; border-radius:10px; margin-bottom:10px; text-align:center;
+        }
+        #harborInfo { 
+            padding:15px; font-weight:bold; color:white;
+            font-size:16px; border-radius:10px; margin-bottom:10px; text-align:center;
+            background:#0077b6;
+        }
+        #weatherInfo { padding:10px; background:#eef; margin-bottom:10px; }
+        #fishInfo {
+            padding:15px; font-weight:bold; color:white;
+            font-size:16px; border-radius:10px; margin-bottom:10px; text-align:left;
+            background:#023047;
+        }
+        #sosBtn {
+            background:red; color:white; padding:10px; border:none;
+            border-radius:5px; cursor:pointer; margin-bottom:10px;
+        }
+        #debugLocation {
+            padding:10px; background:#ddd; margin-bottom:10px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Fishermen Safety Dashboard</h2>
+
+<div id="networkStatus">Checking network...</div>
+<button id="sosBtn">🚨 SOS</button>
+<div id="safetyStatus">Checking sea conditions...</div>
+<div id="harborInfo">Nearest Harbor: Loading...</div>
+<div id="weatherInfo">Loading weather...</div>
+<div id="fishInfo">Nearby Fish Spots: Loading...</div>
+<div id="debugLocation">DEBUG: Waiting for location...</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+
+// ------------------------
+// Online / Offline Status
+// ------------------------
+function updateNetworkStatus() {
+    const statusDiv = document.getElementById('networkStatus');
+    if (navigator.onLine) {
+        statusDiv.innerText = "📡 Online Mode";
+        statusDiv.style.backgroundColor = "green";
+    } else {
+        statusDiv.innerText = "📡 Offline Mode – Using cached data";
+        statusDiv.style.backgroundColor = "orange";
+    }
+}
+updateNetworkStatus();
+window.addEventListener('online', updateNetworkStatus);
+window.addEventListener('offline', updateNetworkStatus);
+
+// ------------------------
+// SOS Button (send to all contacts)
+// ------------------------
+document.getElementById('sosBtn').addEventListener('click', function () {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function (pos) {
+            const lat = pos.coords.latitude.toFixed(6);
+            const lon = pos.coords.longitude.toFixed(6);
+            const seaStatus = document.getElementById('safetyStatus').innerText.split('\n')[0];
+
+            const contacts = [
+                "Family Member / Close Contact",
+                "Indian Coast Guard",
+                "Kerala Fisheries Dept"
+            ];
+            contacts.forEach(c => {
+                alert(`🚨 SOS sent to ${c}\nLatitude: ${lat}\nLongitude: ${lon}\nStatus: ${seaStatus}`);
+            });
+        }, function() {
+            alert("GPS not available! SOS cannot be sent.");
+        });
+    } else {
+        alert("GPS not supported! SOS cannot be sent.");
+    }
+});
+
+// ------------------------
+// Haversine distance
+// ------------------------
+function getDistance(lat1, lon1, lat2, lon2) {
+    var R = 6371;
+    var dLat = (lat2-lat1)*Math.PI/180;
+    var dLon = (lon2-lon1)*Math.PI/180;
+    var a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    var c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R*c;
+}
+
+// ------------------------
+// Update Dashboard Cards
+// ------------------------
+function updateSafetyCard(weatherData, harborData=null, nearbyFish=[]) {
+    // Safety card
+    const safetyBox = document.getElementById('safetyStatus');
+    const color = weatherData.safety.includes("Dangerous") ? "red"
+                : weatherData.safety.includes("Rough") ? "orange"
+                : weatherData.safety.includes("Breezy") ? "gold"
+                : "green";
+    safetyBox.innerHTML = `SEA STATUS: ${weatherData.safety}<br>
+                           🌡 Temp: ${weatherData.temp}°C | 🌬 Wind: ${weatherData.wind_knots} knots`;
+    safetyBox.style.backgroundColor = color;
+
+    // Harbor info
+    if (harborData) {
+        document.getElementById('harborInfo').innerText =
+            `🛳 Nearest Harbor: ${harborData.name} | Distance: ${harborData.distance_km} km | Direction: ${harborData.direction}`;
+    }
+
+    // Weather info
+    document.getElementById('weatherInfo').innerText =
+        `🌡 Temp: ${weatherData.temp}°C | 🌬 Wind: ${weatherData.wind_kph} kph (${weatherData.wind_knots} knots)` +
+        (weatherData.storm_alert ? " | ⚠️ Cyclone / Storm Alert!" : "");
+
+    // Cyclone alert banner
+    const statusDiv = document.getElementById('networkStatus');
+    if (weatherData.storm_alert) {
+        statusDiv.innerText = "⚠️ Cyclone / Storm Alert! Return to harbor!";
+        statusDiv.style.backgroundColor = "red";
+    }
+
+    // Nearby fish spots
+    const fishDiv = document.getElementById('fishInfo');
+    if (nearbyFish.length > 0) {
+        const list = nearbyFish.map(f => `🚢 ${f.name} (${f.dist.toFixed(2)} km)`).join('<br>');
+        fishDiv.innerHTML = `Nearby Fish Spots:<br>${list}`;
+    } else {
+        fishDiv.innerHTML = "Nearby Fish Spots: None within 2 km";
+    }
+}
+
+// ------------------------
+// Initialize Map
+// ------------------------
+const defaultLat = 19.075984;
+const defaultLon = 72.877656;
+const map = L.map('map').setView([defaultLat, defaultLon], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+
+// Harbors
+const harbors = {{ harbors | tojson | safe }};
+harbors.forEach(h => L.marker([h[1], h[2]], {
+    icon: L.icon({ iconUrl:'https://maps.google.com/mapfiles/ms/icons/blue-dot.png', iconSize:[32,32] })
+}).addTo(map).bindPopup(h[0]));
+
+// Fish Hotspots
+const shipIcon = L.icon({
+    iconUrl:'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+    iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32]
+});
+const fish_spots = {{ fish_spots | tojson | safe }};
+fish_spots.forEach(f => {
+    L.marker([f[1], f[2]], {icon: shipIcon}).addTo(map)
+      .bindPopup(`<b>${f[0]}</b><br>Good fishing spot!`);
+});
+
+// ------------------------
+// Load Dashboard
+// ------------------------
+function loadDashboard(lat, lon) {
+    document.getElementById('debugLocation').innerText =
+        `DEBUG: Using GPS → Latitude: ${lat}, Longitude: ${lon}`;
+
+    // User marker
+    L.marker([lat, lon], {icon:L.icon({iconUrl:'https://maps.google.com/mapfiles/ms/icons/red-dot.png', iconSize:[32,32]})})
+      .addTo(map).bindPopup("You are here").openPopup();
+    map.setView([lat, lon], 10);
+
+    // Nearby fish spots
+    const nearbyFish = fish_spots.map(f => ({name: f[0], dist: getDistance(lat, lon, f[1], f[2])}))
+                                .filter(f => f.dist <= 2);
+
+    // Fetch weather + nearest harbor
+    function fetchData() {
+        fetch(`/weather/${lat}/${lon}`)
+            .then(r => r.json())
+            .then(weatherData => {
+                localStorage.setItem('lastWeather', JSON.stringify(weatherData));
+                fetch(`/nearest_harbor/${lat}/${lon}`)
+                    .then(r => r.json())
+                    .then(harborData => {
+                        localStorage.setItem('lastHarbor', JSON.stringify(harborData));
+                        updateSafetyCard(weatherData, harborData, nearbyFish);
+                    }).catch(err => console.error("Harbor fetch error:", err));
+            }).catch(err => console.error("Weather fetch error:", err));
+    }
+
+    if (navigator.onLine) {
+        fetchData();
+    } else {
+        // Use cached data if offline
+        const cachedWeather = JSON.parse(localStorage.getItem('lastWeather'));
+        const cachedHarbor = JSON.parse(localStorage.getItem('lastHarbor'));
+        if (cachedWeather) updateSafetyCard(cachedWeather, cachedHarbor, nearbyFish);
+    }
+}
+
+// ------------------------
+// Main: GPS or fallback
+// ------------------------
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+        pos => loadDashboard(pos.coords.latitude, pos.coords.longitude),
+        () => {
+            loadDashboard(defaultLat, defaultLon);
+            alert("GPS access denied, using fallback location (Mumbai).");
+        }
+    );
+} else {
+    loadDashboard(defaultLat, defaultLon);
+    alert("GPS not supported, using fallback location (Mumbai).");
+}
+
+</script>
+</body>
+</html>  

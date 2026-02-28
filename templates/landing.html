@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fishermen Safety App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            color: white;
+            text-align: center;
+            margin: 0;
+
+            /* Landing page background image */
+            background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1470&q=80'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
+
+        /* Overlay for readability */
+        body::before {
+            content: "";
+            position: absolute;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(0,0,0,0.4);
+            z-index: 0;
+        }
+
+        h1, p, button {
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 { font-size: 2.5rem; margin-bottom: 20px; }
+        p { font-size: 1.2rem; margin-bottom: 30px; max-width: 400px; }
+        button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover { background: darkred; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to Fishermen Safety App</h1>
+    <p>Ensure safe fishing trips with real-time weather updates, harbors, fish hotspots, and SOS alerts.</p>
+    <button onclick="location.href='/map'">Go to Dashboard</button>
+</body>
+</html>
