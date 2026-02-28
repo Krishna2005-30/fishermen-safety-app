@@ -45,6 +45,7 @@ source venv/bin/activate
 pip install -r requirements.txt 
 
 #pic url
+https://drive.google.com/file/d/1aX-qj6HaCRa9o4vOXWn8_2_9oPaP1GAD/view?usp=drive_link
 https://drive.google.com/file/d/1jqdV3WhdynJzZV-0DIVnWGO2rvTwDXFm/view?usp=drive_link
 
 #Architecture Diagram
