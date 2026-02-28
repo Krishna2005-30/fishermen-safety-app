@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify
 import sqlite3
 import requests
+import os
 import math
 
 app = Flask(__name__)
@@ -25,7 +26,7 @@ def get_fish_hotspots():
     return fish_spots
 
 # --------------------
-# Routes
+# Landing Page
 # --------------------
 @app.route('/')
 def landing():
@@ -38,24 +39,29 @@ def home():
     return render_template('index.html', harbors=harbors, fish_spots=fish_spots)
 
 # --------------------
-# WEATHER ROUTE
+# Weather API
 # --------------------
 @app.route('/weather/<float:lat>/<float:lon>')
 def get_weather(lat, lon):
     API_KEY = "291164fa5e4d4aa9acc174910262702"  # 🔴 Replace with your key
     url = f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={lat},{lon}"
-    response = requests.get(url)
-    data = response.json()
-
-    temp = data["current"]["temp_c"]
-    wind_kph = data["current"]["wind_kph"]
-
-    # Check for storm
-    condition_text = data["current"].get("condition", {}).get("text", "").lower()
-    storm_alert = "storm" in condition_text
-
-    # Convert to knots
-    wind_knots = wind_kph * 0.539957
+    try:
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        temp = data["current"]["temp_c"]
+        wind_kph = data["current"]["wind_kph"]
+        condition_text = data["current"].get("condition", {}).get("text", "").lower()
+        storm_alert = "storm" in condition_text
+        wind_knots = wind_kph * 0.539957
+    except Exception:
+        return jsonify({
+            "temp": None,
+            "wind_kph": None,
+            "wind_knots": None,
+            "safety": "Data unavailable",
+            "storm_alert": False,
+            "advice": "Check internet/API key"
+        })
 
     # Safety logic
     if storm_alert:
@@ -84,7 +90,7 @@ def get_weather(lat, lon):
     })
 
 # --------------------
-# Nearest Harbor Route
+# Nearest Harbor API
 # --------------------
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371  # Earth radius in km
@@ -96,25 +102,24 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
 
+def get_direction(d_lat, d_lon):
+    lat_dir = "North" if d_lat > 0 else "South"
+    lon_dir = "East" if d_lon > 0 else "West"
+    return f"{lat_dir}-{lon_dir}"
+
 @app.route('/nearest_harbor/<float:lat>/<float:lon>')
 def nearest_harbor(lat, lon):
     harbors = get_harbors()
     nearest = None
     min_dist = float('inf')
-
     for h in harbors:
         dist = haversine(lat, lon, h[1], h[2])
         if dist < min_dist:
             min_dist = dist
             nearest = h
-
-    # Rough direction
     d_lat = nearest[1] - lat
     d_lon = nearest[2] - lon
-    direction = ""
-    direction += "North" if d_lat > 0 else "South"
-    direction += "-East" if d_lon > 0 else "-West"
-
+    direction = get_direction(d_lat, d_lon)
     return jsonify({
         "name": nearest[0],
         "distance_km": round(min_dist, 2),
@@ -122,8 +127,8 @@ def nearest_harbor(lat, lon):
     })
 
 # --------------------
-# RUN APP
+# Run app
 # --------------------
-if __name__ == "__main__": 
-    port = int(os.environ.get("PORT", 5000))  # Render sets this automatically
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)

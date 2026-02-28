@@ -47,6 +47,7 @@ pip install -r requirements.txt
 #pic url
 https://drive.google.com/file/d/1aX-qj6HaCRa9o4vOXWn8_2_9oPaP1GAD/view?usp=drive_link
 https://drive.google.com/file/d/1jqdV3WhdynJzZV-0DIVnWGO2rvTwDXFm/view?usp=drive_link
+https://drive.google.com/file/d/1ZdcBiASGu5l5XFl5phcc2YBTnKDnKYUN/view?usp=drive_link
 
 #Architecture Diagram
 
@@ -136,3 +137,6 @@ Frontend marks these spots on the map and alerts the user when nearby.
 
 #Team Members
 Krishnaveni T C
+
+## 📄 License
+This project is licensed under the MIT License – see the [LICENSE](LICENSE) file for details.
